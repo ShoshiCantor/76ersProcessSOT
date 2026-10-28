@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Process Ship of Theseus</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Source+Sans+3:wght@400;600&family=New+Rocker&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root{--blue:#006BB6;--red:#ED174C;--navy:#002B5C;--silver:#C4CED4;--white:#FFFFFF;--gold:#D9A400;--slider:var(--red)}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#1b1008;color:var(--navy);font:15px/1.3 "Source Sans 3",system-ui,sans-serif}
+.app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column}
+.panel{position:relative;z-index:3;flex:none;background:var(--white);color:var(--navy);padding:8px max(22px,calc((100% - 1456px) / 2)) 8px;display:flex;flex-direction:column;gap:4px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:16px}
+h1{font:400 clamp(24px,3.2vw,38px)/1 "New Rocker","Chakra Petch",sans-serif;margin:0}
+.now{display:flex;align-items:center;gap:16px}
+.season{font:700 30px/1 "Chakra Petch",sans-serif;color:var(--blue)}
+.rec{display:flex;flex-direction:column;line-height:1.15}
+#wl{font:700 19px/1.1 "Chakra Petch",sans-serif}
+#pct{font-size:13px;opacity:.8}
+input[type=range]{width:100%;accent-color:var(--slider);margin:2px 0 0}
+.ticks{display:flex;justify-content:space-between;font-size:12px}
+.titlebox{display:flex;align-items:center;gap:12px}
+.navback{width:60px;height:45px;padding:0;border:0;background:none;cursor:pointer;flex:none}
+.navback svg{width:100%;height:100%;display:block;overflow:visible;transform:scaleX(-1);transition:transform .2s}
+.navback:hover svg{transform:scaleX(-1) translateX(4px)}
+.navback:focus-visible{outline:3px solid var(--navy);outline-offset:4px;border-radius:8px}
+.btn{font:600 13px/1 "Source Sans 3",system-ui,sans-serif;color:var(--navy);background:var(--white);border:2px solid var(--navy);border-radius:999px;padding:6px 13px;cursor:pointer}
+.btn:hover{background:var(--navy);color:var(--white)}
+.btn:focus-visible,.link:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.btn.primary{background:var(--red);border-color:var(--red);color:var(--white)}
+.btn.primary:hover{background:#b30f38;border-color:#b30f38}
+.link{background:none;border:0;padding:6px 4px;font:600 13px "Source Sans 3",sans-serif;color:var(--navy);text-decoration:underline;cursor:pointer}
+#err{background:#fde8ec;border:1px solid var(--red);padding:10px;border-radius:6px;display:none}
+
+.stage{flex:1;min-height:0;display:flex}
+.gauge{position:relative;z-index:2;width:150px;flex:none;display:flex;flex-direction:column;align-items:center;text-align:center;background:var(--white);color:var(--navy);padding:14px 10px 12px}
+.gnum{font:700 28px/1 "Chakra Petch",sans-serif;color:var(--blue)}
+.gcap{font-size:11.5px;line-height:1.2;margin-top:2px}
+.gbox{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:6px 0 4px}
+.gtrack{position:relative;flex:1;min-height:120px;width:24px;align-self:flex-start;margin:62px 0 6px 26px}
+.gwater{position:absolute;inset:0;background:var(--silver);border-radius:12px;overflow:hidden}
+.gfill{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--blue)}
+.gship{position:absolute;left:50%;bottom:0;width:58px;height:52px;margin:0 0 -3px -29px}
+.gl{position:absolute;left:calc(100% + 20px);font-size:11px;transform:translateY(-50%)}
+.gfill,.gship{transition:height .35s,bottom .35s}
+
+.grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(var(--c,6),var(--cw,120px));gap:14px;justify-content:start;align-content:start;padding:16px 22px 16px;box-shadow:inset 10px 0 14px -10px rgba(0,0,0,.55),inset 0 10px 14px -10px rgba(0,0,0,.55);overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.7) transparent}
+@media(min-width:760px){.grid.more{-webkit-mask-image:linear-gradient(#000 calc(100% - 44px),transparent);mask-image:linear-gradient(#000 calc(100% - 44px),transparent)}}
+.card{width:var(--cw);perspective:800px;cursor:pointer;font-size:var(--fs,13px)}
+.card:focus-visible{outline:3px solid var(--navy);outline-offset:4px;border-radius:8px}
+.flip{display:grid;transform-style:preserve-3d;transition:transform .45s}
+.card.flipped .flip{transform:rotateY(180deg)}
+.face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--white);border:3px solid var(--red);border-radius:8px;padding:5px;text-align:center}
+.card.process .face{border-color:var(--blue)}
+.face{box-shadow:0 0 0 2px var(--white),0 5px 12px rgba(0,0,0,.45)}
+.card.gold .face{box-shadow:0 0 0 2px var(--white),0 0 0 5px var(--gold),0 5px 12px rgba(0,0,0,.45)}
+.flip{position:relative}
+.back{position:absolute;inset:0;overflow:auto;scrollbar-width:none;transform:rotateY(180deg);display:flex;flex-direction:column;justify-content:safe center;gap:2px;font-size:max(9px,.8em);line-height:1.18}
+.back b{font-size:1.1em;line-height:1.1}
+.back .dr{opacity:.85}
+.ph{position:relative;aspect-ratio:4/3;background:var(--silver);border-radius:4px;overflow:hidden}
+.pic{width:100%;height:100%;display:grid;place-items:center;font:700 1.8em "Chakra Petch",sans-serif}
+.pic img{width:100%;height:100%;object-fit:cover;object-position:top}
+.badge{position:absolute;left:3px;top:3px;background:var(--navy);color:var(--white);font:600 .9em/1.5 "Chakra Petch",sans-serif;padding:0 .45em;border-radius:4px}
+.badge:empty{display:none}
+.nm{font-weight:600;margin-top:4px;line-height:1.1}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.app{transition:opacity .9s ease .5s}
+body:not(.entered) .app{opacity:0}
+.cover{position:fixed;inset:0;z-index:50;background:#12080a;overflow:hidden;transition:opacity .9s ease .45s}
+.cover.leaving{opacity:0;pointer-events:none}
+.cover.gone,.intro.gone,.defs.gone{display:none}
+.art{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:max(100vw,calc(100vh * 1744 / 959));aspect-ratio:1744/959}
+.art img{width:100%;height:100%;display:block}
+.fb{display:none;position:absolute;inset:0;place-content:center;text-align:center;color:var(--white);font:400 clamp(36px,7vw,90px) "New Rocker",serif}
+.cover.noimg .fb{display:grid}
+.boat{position:absolute;left:82.2%;top:81.5%;width:7%;aspect-ratio:120/90;padding:0;border:0;background:none;cursor:pointer;transition:transform 1.3s cubic-bezier(.5,0,.9,.6)}
+.boat svg{width:100%;height:100%;display:block;overflow:visible;animation:bob 3.2s ease-in-out infinite;filter:drop-shadow(0 4px 6px rgba(0,0,0,.45))}
+.boat:hover svg,.boat:focus-visible svg{filter:drop-shadow(0 0 8px #fff)}
+.boat:focus-visible{outline:3px solid var(--white);outline-offset:6px;border-radius:8px}
+.cover.leaving .boat{transform:translateX(900%)}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(6%) rotate(2deg)}}
+.grid.top .card.flipped .flip{transform:rotateX(180deg)}
+.grid.top .back{transform:rotateX(180deg)}
+
+/* ---- wood planks: weathered boards = the original ship, fresh pale boards = replacements ---- */
+#planks{position:fixed;inset:0;z-index:0;display:flex;flex-direction:column;background:#1a0f07;overflow:hidden;
+  --g0:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='90'><filter id='g' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.004 0.30' numOctaves='4' seed='3'/><feColorMatrix type='matrix' values='0 0 0 0 .2  0 0 0 0 .1  0 0 0 0 .03  0 0 0 1.35 -.52'/></filter><rect width='900' height='90' filter='url(%23g)'/></svg>");
+  --g1:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='90'><filter id='g' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.003 0.36' numOctaves='4' seed='9'/><feColorMatrix type='matrix' values='0 0 0 0 .2  0 0 0 0 .1  0 0 0 0 .03  0 0 0 1.35 -.52'/></filter><rect width='900' height='90' filter='url(%23g)'/></svg>");
+  --g2:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='90'><filter id='g' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.005 0.26' numOctaves='4' seed='14'/><feColorMatrix type='matrix' values='0 0 0 0 .2  0 0 0 0 .1  0 0 0 0 .03  0 0 0 1.35 -.52'/></filter><rect width='900' height='90' filter='url(%23g)'/></svg>");
+  --g3:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='90'><filter id='g' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.0035 0.33' numOctaves='4' seed='21'/><feColorMatrix type='matrix' values='0 0 0 0 .2  0 0 0 0 .1  0 0 0 0 .03  0 0 0 1.35 -.52'/></filter><rect width='900' height='90' filter='url(%23g)'/></svg>")}
+#planks::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 60% 45%,transparent 50%,rgba(0,0,0,.3))}
+.pr{flex:1;min-height:0;display:flex}
+.pl{position:relative;min-width:0;overflow:hidden;
+  background-color:hsl(var(--h,25) 26% calc(27% + var(--v) * 9%));
+  background-image:var(--grain),linear-gradient(180deg,rgba(255,236,205,.09),rgba(255,236,205,0) 20%,rgba(0,0,0,0) 74%,rgba(0,0,0,.24)),linear-gradient(90deg,rgba(0,0,0,.22),rgba(0,0,0,0) 1.2%,rgba(0,0,0,0) 98.8%,rgba(0,0,0,.22));
+  background-size:900px 100%,auto,auto;background-position:var(--bx,0) 0,0 0,0 0;
+  box-shadow:inset 0 1px 0 rgba(10,4,1,.55),inset 0 -2px 0 rgba(10,4,1,.7),inset 1px 0 0 rgba(10,4,1,.55),inset -1px 0 0 rgba(10,4,1,.55),inset 0 2px 0 rgba(255,236,205,.05);
+  transition:background-color 1s ease}
+.pl.n{background-color:hsl(calc(var(--h,25) + 8) 36% calc(50% + var(--v) * 10%))}
+.pl.k::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 22px 9px at var(--kx,50%) var(--ky,50%),rgba(18,8,2,.62) 0 30%,rgba(18,8,2,.3) 52%,rgba(18,8,2,0) 74%),radial-gradient(ellipse 60px 20px at var(--kx,50%) var(--ky,50%),rgba(18,8,2,.18),rgba(18,8,2,0) 70%)}
+
+/* ---- win % trendline ---- */
+.trend{position:relative;height:46px;margin:0 8px}
+.trend svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.trend .line{fill:none;stroke:var(--navy);stroke-width:2.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.trend .half{stroke:var(--silver);stroke-width:1.5;stroke-dasharray:5 5;vector-effect:non-scaling-stroke}
+.trend .era{fill:var(--blue);opacity:.12}
+.trend .dot{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--red);border:3px solid var(--white);box-shadow:0 0 0 2px var(--red);transition:left .35s,top .35s}
+.trend .tl{position:absolute;font-size:11px;opacity:.75;line-height:1}
+.trend .t50{right:24px;transform:translateY(-115%)}
+.trend .tera{top:2px;color:var(--blue);font-weight:600;opacity:1}
+
+/* ---- slide 2: your designed image, full screen ---- */
+.intro{position:fixed;inset:0;z-index:40;background:#001a38;transition:opacity .9s ease .45s}
+.intro.leaving{opacity:0;pointer-events:none}
+.intro img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+@media(max-aspect-ratio:8/5){.intro img{object-fit:contain}}   /* tall/narrow windows: show the whole image instead of cropping text */
+.fb2{display:none;position:absolute;inset:0;place-content:center;padding:24px;text-align:center;color:var(--white);font-size:16px}
+.intro.noimg .fb2{display:grid}
+.dgo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* slide arrows: bottom right. Move them with --nx (from right edge) and --ny (from bottom). */
+.inav{position:absolute;right:var(--nx,28px);bottom:var(--ny,24px);z-index:2;display:flex;gap:8px}
+.arr{width:38px;height:38px;padding:0;border-radius:50%;border:2px solid var(--white);background:rgba(0,26,56,.6);color:var(--white);font:700 19px/1 "Source Sans 3",system-ui,sans-serif;cursor:pointer;display:grid;place-items:center;transition:background .2s,transform .2s}
+.arr:hover{background:var(--red);border-color:var(--red);transform:scale(1.08)}
+.arr:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.inav .link,.defs .link{color:var(--white)}
+.btn.big{font-size:16px;padding:11px 22px}
+
+/* ---- slide 3: how the categories are defined ---- */
+.defs{position:fixed;inset:0;z-index:45;overflow-y:auto;color:var(--white);transition:opacity .9s ease .45s;
+  background:radial-gradient(ellipse at 20% 0%,#0a3d73 0%,#002B5C 45%,#001a38 100%)}
+.defs.leaving{opacity:0;pointer-events:none}
+.dwrap{min-height:100%;max-width:1180px;margin:0 auto;padding:26px 24px 22px;display:flex;flex-direction:column;justify-content:center;gap:18px}
+.dwrap h2{font:400 clamp(30px,4.4vw,52px)/1 "New Rocker","Chakra Petch",sans-serif;margin:0}
+.dlead{margin:0;max-width:900px;font-size:17px;line-height:1.45;opacity:.93}
+.dcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
+.dcol{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:20px 22px 18px}
+.dcol h3{font:700 24px/1.1 "Chakra Petch",sans-serif;margin:16px 0 9px}
+.dcol p{margin:0 0 9px;font-size:15.5px;line-height:1.45}
+.dcol p:last-child{margin:0}
+.dsw{width:92px;height:68px;padding:5px;border:6px solid;border-radius:10px;background:var(--white)}
+.dsw::after{content:"";display:block;width:100%;height:100%;background:var(--silver);border-radius:4px}
+.dsw.p{border-color:var(--blue)}.dsw.l{border-color:var(--red)}
+.dsw.g{border-color:var(--blue);box-shadow:0 0 0 3px var(--white),0 0 0 6px var(--gold);margin:3px}
+.dgo{justify-content:space-between}
+.defs>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+@media(max-aspect-ratio:8/5){.defs>img{object-fit:contain}}
+.defs{background-color:#001a38}
+.defs .dwrap{display:none}
+.defs.noimg{background:radial-gradient(ellipse at 20% 0%,#0a3d73 0%,#002B5C 45%,#001a38 100%)}
+.defs.noimg .dwrap{display:flex}
+.defs.noimg>img,.defs.noimg .inav{display:none}
+
+/* ---- header buttons + key ---- */
+.hr{display:flex;align-items:center;gap:12px}
+.hr .now{margin-left:10px}
+.key{width:100%;display:flex;flex-direction:column;gap:8px;text-align:left;font-size:12.5px;padding-bottom:12px;margin-bottom:14px;border-bottom:2px solid var(--silver)}
+.ki{display:flex;align-items:flex-start;gap:8px;line-height:1.2}
+.ki i{flex:none;width:17px;height:17px;border:4px solid;border-radius:4px;background:var(--white)}
+.ki .gi{border-color:var(--blue);box-shadow:0 0 0 2px var(--white),0 0 0 4px var(--gold);margin:2px 4px 0 3px;width:15px;height:15px}
+.key .tip2{margin-top:2px;font-size:12px;line-height:1.3;opacity:.75}
+
+/* ---- data dialog ---- */
+dialog{border:0;border-radius:14px;padding:0;width:min(660px,92vw);max-height:88vh;color:var(--navy);box-shadow:0 18px 50px rgba(0,0,0,.5)}
+dialog::backdrop{background:rgba(0,18,40,.65)}
+.dlg{padding:20px 24px 22px;font-size:15px;line-height:1.4}
+.dlg h2{font:400 30px/1.05 "New Rocker","Chakra Petch",sans-serif;margin:0 0 8px}
+.dlg h3{font:700 16px/1.2 "Chakra Petch",sans-serif;margin:16px 0 4px;color:var(--blue)}
+.dlg ul{margin:4px 0 0;padding-left:20px}.dlg li{margin:4px 0}
+.dlg code{background:#eef2f6;border-radius:4px;padding:1px 5px;font-size:.92em}
+.dlg .x{display:flex;justify-content:flex-end;margin-top:16px}
+
+/* ---- onboarding tour ---- */
+.tour{position:fixed;inset:0;z-index:60}
+.tour[hidden]{display:none}
+.hole{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,18,40,.72),0 0 0 3px var(--gold);transition:left .3s,top .3s,width .3s,height .3s;pointer-events:none}
+.hole.none{box-shadow:0 0 0 9999px rgba(0,18,40,.72)}
+.tip{position:fixed;width:min(350px,calc(100vw - 24px));background:var(--white);border-radius:14px;padding:16px 18px 14px;box-shadow:0 12px 36px rgba(0,0,0,.5);transition:left .3s,top .3s}
+.tip .st{font:600 12px "Chakra Petch",sans-serif;color:var(--red);letter-spacing:.06em;text-transform:uppercase}
+.tip h2{font:400 24px/1.1 "New Rocker","Chakra Petch",sans-serif;margin:3px 0 6px}
+.tip p{margin:0 0 12px;font-size:14.5px;line-height:1.4}
+.tb{display:flex;justify-content:space-between;align-items:center}
+.tb span{display:flex;gap:8px}
+.dots{display:flex;gap:5px;margin:0 0 10px}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--silver)}
+.dots i.on{background:var(--red)}
+
+@media(prefers-reduced-motion:reduce){.gfill,.gship,.flip,.app,.cover,.intro,.defs,.boat,.pl,.trend .dot,.hole,.tip{transition:none}.boat svg{animation:none}}
+@media(max-width:759px){.app{height:auto}.stage{flex-direction:column}.gauge{min-height:440px;width:100%}.hr{flex-wrap:wrap}.panel .head{flex-wrap:wrap}
+  .grid{overflow:visible;grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}.card{width:auto}
+  .ticks span:not(:first-child):not(:last-child){display:none}
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="boat" viewBox="0 0 120 90" style="overflow:visible">
+  <path d="M60 6V52" stroke="#4a2f17" stroke-width="3" stroke-linecap="round"/>
+  <path d="M63 10L102 47H63Z" fill="#f1e6c8" stroke="#4a2f17" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M67 40H90M83 33L91 40L83 47" fill="none" stroke="#002B5C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60 6L49 10.5L60 15Z" fill="#ED174C"/>
+  <path d="M8 52H112L102 70Q94 79 80 79H34Q18 75 8 52Z" fill="#9b6a3a" stroke="#4a2f17" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M14 61H106M22 69H98" stroke="#4a2f17" stroke-width="1.6" opacity=".6"/>
+  <path d="M-4 82q8-7 16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".9"/>
+</symbol></svg>
+<div id="planks" aria-hidden="true"></div>
+<section class="cover" id="cover" aria-label="Cover">
+  <p class="sr">The Process Ship of Theseus</p>
+  <div class="art">
+    <img src="assets/cover.png" alt="Collage: a giant Sixers executive tears a wooden ship in two above a burning NBA landscape, with Sixers players aboard." onerror="document.getElementById('cover').classList.add('noimg')">
+    <div class="fb">The Process Ship of Theseus</div>
+    <button class="boat" id="sailbtn" aria-label="Set sail: continue to the visualization"><svg viewBox="0 0 120 90" aria-hidden="true"><use href="#boat"/></svg></button>
+  </div>
+</section>
+<section class="intro" id="intro" aria-label="Introduction">
+  <img src="assets/intro.png" alt="Introduction slide: The Process was the Philadelphia 76ers' rebuilding strategy under general manager Sam Hinkie. Rights to Ricky Sanchez is a Sixers podcast that helped turn Trust the Process into a rallying cry. The Ship of Theseus asks: if every plank is replaced, is it still the same ship? If almost everything about the Sixers has changed since Hinkie, can the team still claim the identity of the Process?" onerror="document.getElementById('intro').classList.add('noimg')">
+  <div class="fb2">Add the intro slide image at assets/intro.png</div>
+  <div class="inav">
+    <button class="arr" id="introback" type="button" aria-label="Back to the cover">&larr;</button>
+    <button class="arr" id="introgo" type="button" aria-label="Next: how the players are defined">&rarr;</button>
+  </div>
+</section>
+<section class="defs leaving gone" id="defs" aria-label="How the categories are defined">
+  <img src="assets/playerdef.png" alt="How the players are defined: Process Players, Hinkie Draft Night Acquisitions, and Later Players." onerror="document.getElementById('defs').classList.add('noimg')">
+  <div class="inav">
+    <button class="arr" id="dnback" type="button" aria-label="Back">&larr;</button>
+    <button class="arr" id="dngo" type="button" aria-label="Next: the visualization">&rarr;</button>
+  </div>
+  <div class="dwrap">
+    <h2>How I define the players</h2>
+    <p class="dlead">There is no official list of &ldquo;Process players,&rdquo; and reasonable fans would draw the line in different places. I wanted a definition that is accurate to the era and that can be built entirely from open data (rosters, stats and draft history) rather than a hand-curated list. So the rules are simple, and they work the same way for every season.</p>
+    <div class="dcols">
+      <article class="dcol">
+        <div class="dsw p" aria-hidden="true"></div>
+        <h3>Process Player</h3>
+        <p>Any player on the Sixers' roster during the Hinkie era, from the 2013-14 season through 2016-17.</p>
+        <p>I also include the first round of the 2017 draft. Colangelo made those picks, but it was Hinkie's plan that acquired them.</p>
+        <p>Once a player qualifies, he counts as a Process player in every season he appears, which is what lets the ship drain as they leave.</p>
+      </article>
+      <article class="dcol">
+        <div class="dsw g" aria-hidden="true"></div>
+        <h3>Hinkie Draft Night Acquisition</h3>
+        <p>A highlight within the Process group. One big motivation for tanking was the best possible lottery odds, so I mark the players Hinkie brought in on draft night: Sixers draft picks from 2013, 2014 and 2015, plus two draft-night trades the draft data can't see (Nerlens Noel and Dario Saric).</p>
+        <p>Because of this definition, the 2016 and 2017 draftees count as Process players but don't get the gold ring.</p>
+      </article>
+      <article class="dcol">
+        <div class="dsw l" aria-hidden="true"></div>
+        <h3>Later Player</h3>
+        <p>Any player who arrives in the 2017-18 season or later, other than the Sixers' 2017 first-round picks.</p>
+        <p>They are the replacement planks in the ship.</p>
+      </article>
+    </div>
+    <div class="dgo">
+      <button class="link" id="defsback" type="button">&larr; Back</button>
+      <button class="btn primary big" id="defsgo" type="button">Show me the ship &rarr;</button>
+    </div>
+  </div>
+</section>
+<div class="app" id="app">
+  <div class="panel">
+  <div class="head">
+    <div class="titlebox"><button class="navback" id="navback" aria-label="Back to the previous slide"><svg viewBox="0 0 120 90" aria-hidden="true"><use href="#boat"/></svg></button>
+      <h1>The Process Ship of Theseus</h1></div>
+    <div class="hr">
+      <button class="btn" id="tourbtn" type="button">How to use</button>
+      <button class="btn" id="datasrc" type="button">Data sources</button>
+      <div class="now">
+        <span class="season" id="season"></span>
+        <div class="rec"><strong id="wl"></strong><span id="pct"></span></div>
+      </div>
+    </div>
+  </div>
+  <div id="err"></div>
+  <div id="sliderwrap">
+    <div class="trend" id="trend" role="img" aria-label="Win percentage by season">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="era" id="tEra" y="0" height="100"/>
+        <line class="half" id="tHalf" x1="0" x2="1000"/>
+        <polyline class="line" id="tLine" points=""/>
+      </svg>
+      <span class="tl t50" id="t50">.500</span>
+      <span class="tl tera" id="tEraLbl">Process era</span>
+      <span class="dot" id="tDot"></span>
+    </div>
+    <input type="range" id="slider" min="0" max="2" value="0" aria-label="Season">
+    <div class="ticks" id="ticks"></div>
+  </div>
+  </div>
+  <div class="stage">
+    <aside class="gauge" aria-label="How many players on the roster were part of the Process">
+      <div class="key" id="legend">
+        <div class="ki"><i style="border-color:var(--blue)"></i><b>Process Player</b></div>
+        <div class="ki"><i class="gi"></i><b>Hinkie Draft Night Acquisition</b></div>
+        <div class="ki"><i style="border-color:var(--red)"></i><b>Later Player</b></div>
+        <div class="tip2">Click a card to see player stats</div>
+      </div>
+      <div class="gbox" id="gaugebox">
+      <div class="gnum" id="gnum">0 of 0</div>
+      <div class="gcap">players were part of the Process.</div>
+      <div class="gtrack">
+        <div class="gwater"><div class="gfill" id="gfill"></div></div>
+        <svg class="gship" id="gship" viewBox="0 0 64 56" aria-hidden="true">
+          <path d="M31 4V38" stroke="#002B5C" stroke-width="3" stroke-linecap="round"/>
+          <path d="M34 6L57 33H34Z" fill="#ED174C" stroke="#002B5C" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M28 12L9 33H28Z" fill="#ED174C" stroke="#002B5C" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M4 39H60L52 53H12Z" fill="#ED174C" stroke="#002B5C" stroke-width="2.5" stroke-linejoin="round"/>
+        </svg>
+        <span class="gl" style="top:0">100%</span><span class="gl" style="top:50%">50%</span><span class="gl" style="top:100%">0%</span>
+      </div>
+      </div>
+    </aside>
+    <section class="grid" id="roster"></section>
+  </div>
+</div>
+
+<dialog id="datadlg" aria-labelledby="dlgTitle">
+  <div class="dlg">
+    <h2 id="dlgTitle">Where the data comes from</h2>
+    <p>Everything here is pulled automatically from the NBA's public stats site with the <code>nba_api</code> Python library (<code>pull_data.py</code>). The only hand-entered detail is two draft-night trades, noted below (as well as on the prior slide).</p>
+    <h3>What comes from where</h3>
+    <ul>
+      <li><strong>Player stats</strong> (games, minutes, points, rebounds, assists): the league player stats feed, Sixers only, regular season, per game.</li>
+      <li><strong>Rosters and jersey numbers</strong>: each season's final team roster. Players who were on the roster but never played show up as &ldquo;did not play.&rdquo; Jersey numbers come from this same list (see below).</li>
+      <li><strong>Win&ndash;loss records</strong> (and the trendline): the team's year-by-year totals.</li>
+      <li><strong>Draft details</strong> (year, round, pick, and the team that made the pick): the league's draft history.</li>
+      <li><strong>Headshots</strong>: the NBA's headshot image server. Initials appear when a photo is missing.</li>
+    </ul>
+    <h3>Good to know</h3>
+    <ul>
+      <li><strong>Jersey numbers.</strong> The roster feed only lists who was on the team at the end of a season, so players traded or waived mid-season have no number there. A card with a number means that player was on the Sixers' roster when the season ended, and a card without one means he left before then.</li>
+      <li><strong>Draft-night trades.</strong> Draft data names the team that made the pick, so Nerlens Noel and Dario Saric (acquired on draft night) are marked as Hinkie draft-night acquisitions by hand.</li>
+      <li><strong>Sixers time only.</strong> A player's stats count only his games with the Sixers that season. Playoffs are not included.</li>
+    </ul>
+    <div class="x"><button class="btn primary" id="dlgclose" type="button">Close</button></div>
+  </div>
+</dialog>
+
+<div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tTitle" aria-describedby="tText">
+  <div class="hole" id="hole"></div>
+  <div class="tip" id="tip">
+    <div class="st" id="tStep"></div>
+    <h2 id="tTitle"></h2>
+    <p id="tText"></p>
+    <div class="dots" id="tDots" aria-hidden="true"></div>
+    <div class="tb"><button class="link" id="tSkip" type="button">Skip tour</button><span><button class="btn" id="tPrev" type="button">Back</button><button class="btn primary" id="tNext" type="button">Next</button></span></div>
+  </div>
+</div>
+
+<script>
+const CFG = {
+  players:"data/players.csv", stats:"data/player_seasons.csv", teams:"data/team_seasons.csv",
+  seasonCount:99,  // 99 = show every season in team_seasons.csv
+  flip:"side",     // side = turns over like a trading card; top = flips up over the top edge
+  // Card layout. One column count and card size is used for every season, so nothing jumps around as you
+  // slide, and it is sized so the BIGGEST roster fits on screen with no scrolling. The column count (between
+  // cols.min and cols.max) is whichever gives the biggest cards; card.max caps how big a card can get.
+  planks:{rows:14},  // wood background: rows of planks (more rows = thinner planks)
+  layout:{cols:{min:4, max:10}, card:{min:90, max:180}},
+  // Card order. processFirst: blue cards before red. by: minutes | games | points | number | name
+  order:{processFirst:true, by:"minutes"},
+  // Process (blue): on the roster in the era, OR a player the Sixers drafted in these years.
+  era:{start:"2013-14", end:"2016-17"},
+  draft:{from:"2013", to:"2017", team:"PHI", firstRoundOnly:["2017"]},  // firstRoundOnly: years where only round 1 counts
+  // Gold border: Hinkie draft nights (2013-2015). A player the Sixers drafted in these years, or one named in goldExtra.
+  gold:{from:"2013", to:"2015", team:"PHI"},
+  // Draft-night trades the draft data cannot see. Names as in data/players.csv (accents ignored).
+  goldExtra:["Nerlens Noel","Dario Saric"]
+};
+const $ = id => document.getElementById(id);
+
+// ---- load a CSV (tolerates a BOM and a stray title line above the header) ----
+async function load(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(url + " (" + res.status + ")");
+  let t = (await res.text()).replace(/^\uFEFF/, "");
+  if(!/nba_id|season/.test(t.split(/\r?\n/, 1)[0])) t = t.slice(t.indexOf("\n") + 1);
+  return Papa.parse(t, {header:true, skipEmptyLines:true, transformHeader:h => h.trim()}).data;
+}
+
+// BEGIN data
+// Rules live here (settings in CFG above). Everything comes from the pulled data.
+function buildSeasons(players, stats, teams, cfg){
+  const info = new Map(players.map(p => [String(p.nba_id).trim(), p]));
+  const pid = r => String(r.nba_id).trim();
+  const inEra = r => { const s = r.season.trim(); return s >= cfg.era.start && s <= cfg.era.end; };
+  const eraIds = new Set(stats.filter(inEra).map(pid));
+  const inRange = (g, dy, dt) => /^\d{4}$/.test(dy) && dy >= g.from && dy <= g.to && (!g.team || dt === g.team);
+  const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const goldNames = new Set(cfg.goldExtra.map(norm));
+  const unknown = cfg.goldExtra.filter(n => !players.some(p => norm(p.name) === norm(n)));
+  if(unknown.length) console.warn("goldExtra names not found in players.csv:", unknown);
+  // Order inside each group. "minutes" = total minutes that season (games x minutes per game).
+  const by = {
+    minutes:(a, b) => b.gp * b.mpg - a.gp * a.mpg,
+    games:(a, b) => b.gp - a.gp,
+    points:(a, b) => (+b.ppg || 0) - (+a.ppg || 0),
+    number:(a, b) => (a.jersey === "" ? 999 : +a.jersey) - (b.jersey === "" ? 999 : +b.jersey),
+    name:(a, b) => a.name.localeCompare(b.name)
+  }[cfg.order.by] || ((a, b) => b.gp * b.mpg - a.gp * a.mpg);
+  return teams.slice(0, cfg.seasonCount).map(t => {
+    const label = t.season.trim();
+    const rows = stats.filter(r => r.season.trim() === label).map(r => {
+      const p = info.get(pid(r)) || {};
+      const dy = (p.draft_year || "").trim(), dt = (p.draft_team || "").trim(), rd = (p.draft_round || "").trim();
+      const draft = !dy ? "" : dy === "Undrafted" ? "Undrafted"
+        : `Drafted ${dy}` + (rd ? `, round ${rd}` : "") + (p.draft_pick ? `, pick ${p.draft_pick}` : "") + (dt ? ` (${dt})` : "");
+      const ours = inRange(cfg.draft, dy, dt) && !((cfg.draft.firstRoundOnly || []).includes(dy) && rd !== "1");
+      return {name:r.name, jersey:/^true$/i.test((r.jersey_estimated || "").trim()) ? "" : (r.jersey || "").trim(),   // older CSVs marked borrowed numbers; hide those
+        draft, photo:p.headshot_url,
+        gp:+r.gp || 0, mpg:+r.mpg || 0, ppg:r.ppg, rpg:r.rpg, apg:r.apg,
+        status: eraIds.has(pid(r)) || ours ? "process" : "replacement",
+        gold: inRange(cfg.gold, dy, dt) || goldNames.has(norm(r.name)),
+        trade: goldNames.has(norm(r.name)) && !inRange(cfg.gold, dy, dt)};
+    }).sort((a, b) => (cfg.order.processFirst ? (b.status === "process") - (a.status === "process") : 0) || by(a, b));
+    const np = rows.filter(r => r.status === "process").length;
+    return {label, w:+t.wins, l:+t.losses, rows, n:rows.length, np};
+  });
+}
+// END data
+
+const initials = n => n.split(" ").map(w => w[0]).join("").slice(0, 2);
+const f1 = x => (+x).toFixed(1);
+let seasons = [];
+
+function card(r, label){
+  const d = document.createElement("div");
+  d.className = "card " + r.status + (r.gold ? " gold" : "");
+  d.tabIndex = 0;
+  d.setAttribute("role", "button");
+  d.setAttribute("aria-pressed", "false");
+  d.innerHTML = `<div class="flip"><div class="face front"><div class="ph"><div class="pic"></div><span class="badge"></span></div><div class="nm"></div></div><div class="face back"></div></div>`;
+  d.querySelector(".nm").textContent = r.name;
+  d.querySelector(".badge").textContent = r.jersey ? "#" + r.jersey : "";
+  const pic = d.querySelector(".pic");
+  if(r.photo){
+    const img = new Image();
+    img.alt = ""; img.loading = "lazy";
+    img.onerror = () => { img.remove(); pic.textContent = initials(r.name); };
+    img.src = r.photo; pic.append(img);
+  } else pic.textContent = initials(r.name);
+
+  const back = d.querySelector(".back");
+  const add = (tag, txt, cls) => { const e = document.createElement(tag); e.textContent = txt; if(cls) e.className = cls; back.append(e); };
+  add("b", r.name);
+  add("div", r.gp ? `${label}: ${r.gp} games` : `${label}: on the roster, did not play`);
+  if(r.gp){
+    add("div", `${f1(r.mpg)} MPG`);
+    add("div", `${f1(r.ppg)} PPG · ${f1(r.rpg)} RPG · ${f1(r.apg)} APG`);
+  }
+  if(r.draft) add("div", r.draft, "dr");
+  if(r.trade) add("div", "Traded for on draft night", "dr");
+
+  const flip = () => d.setAttribute("aria-pressed", d.classList.toggle("flipped"));
+  d.onclick = flip;
+  d.onkeydown = e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); flip(); } };
+  return d;
+}
+
+// One column count + card size for the whole slider (see CFG.layout).
+function fit(){
+  const g = $("roster");
+  if(!seasons.length || matchMedia("(max-width:759px)").matches) return;
+  const L = CFG.layout, gap = 14, cs = getComputedStyle(g);
+  const W = g.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const H = g.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  if(W <= 0 || H <= 0) return;
+  const nMax = Math.max(...seasons.map(s => s.n));
+  const fs = w => Math.max(10, Math.min(15, w * 0.105));
+  const cardH = w => (w - 16) * 0.75 + 16 + 4 + fs(w) * 2.3;   // photo + borders/padding + up to 2 name lines
+  const sizeFor = c => {
+    const rows = Math.ceil(nMax / c);
+    let w = Math.min(L.card.max, Math.floor((W - gap * (c - 1)) / c));
+    while(w > L.card.min && rows * cardH(w) + (rows - 1) * gap > H) w -= 2;
+    return w;
+  };
+  // try every column count and keep the one that gives the biggest cards (ties go to fewer columns)
+  let cols = L.cols.min, w = sizeFor(cols);
+  for(let c = L.cols.min + 1; c <= L.cols.max; c++){
+    const w2 = sizeFor(c);
+    if(w2 > w){ cols = c; w = w2; }
+  }
+  g.style.setProperty("--c", cols);
+  g.style.setProperty("--cw", w + "px");
+  g.style.setProperty("--fs", fs(w) + "px");
+  moreHint();
+}
+// fade the bottom edge when there are more cards to scroll to
+function moreHint(){ const g = $("roster"); g.classList.toggle("more", g.scrollHeight - g.scrollTop - g.clientHeight > 6); }
+
+// ---- wood planks: dark = original ship, pale = replaced. A fixed random order decides which planks swap first,
+// so the wood changes the same way every time and only ever moves with the Process share. ----
+let planks = [];
+function buildPlanks(){
+  const host = $("planks"); host.replaceChildren();
+  let seed = 11; const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  planks = [];
+  for(let r = 0; r < CFG.planks.rows; r++){
+    const row = document.createElement("div"); row.className = "pr";
+    let used = 0;
+    while(used < 100){
+      let w = 30 + rnd() * 40;
+      if(used + w > 100 || 100 - (used + w) < 22) w = 100 - used;
+      const p = document.createElement("div");
+      p.className = "pl"; p.style.flex = w + " 1 0";
+      p.style.setProperty("--v", rnd().toFixed(3));
+      p.style.setProperty("--h", (22 + rnd() * 7).toFixed(1));
+      p.style.setProperty("--bx", Math.floor(rnd() * 900) + "px");
+      p.style.setProperty("--grain", `var(--g${Math.floor(rnd() * 4)})`);
+      if(rnd() < .12){ p.classList.add("k"); p.style.setProperty("--kx", (15 + rnd() * 70).toFixed(0) + "%"); p.style.setProperty("--ky", (30 + rnd() * 40).toFixed(0) + "%"); }
+      row.append(p); planks.push(p); used += w;
+    }
+    host.append(row);
+  }
+  const order = planks.map((_, i) => i);
+  for(let i = order.length - 1; i > 0; i--){ const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  order.forEach((idx, rank) => { planks[idx].dataset.rank = rank; });
+}
+function paintPlanks(pct){
+  const k = Math.round((1 - pct) * planks.length);   // how many planks have been replaced
+  planks.forEach(p => p.classList.toggle("n", +p.dataset.rank < k));
+}
+
+// ---- win % trendline (one point per season, lined up with the slider) ----
+let trendX = [], trendY = [];
+function buildTrend(){
+  const n = seasons.length, wp = seasons.map(s => s.w / (s.w + s.l));
+  const dmax = Math.max(.7, Math.ceil(Math.max(...wp) * 20) / 20);
+  trendX = seasons.map((_, i) => n > 1 ? i / (n - 1) : .5);
+  trendY = wp.map(v => 94 - v / dmax * 88);
+  $("tLine").setAttribute("points", trendX.map((x, i) => `${(x * 1000).toFixed(1)},${trendY[i].toFixed(1)}`).join(" "));
+  const y50 = 94 - .5 / dmax * 88;
+  ["y1", "y2"].forEach(a => $("tHalf").setAttribute(a, y50));
+  $("t50").style.top = y50 + "%";
+  const a = seasons.findIndex(s => s.label >= CFG.era.start);
+  let b = -1; seasons.forEach((s, i) => { if(s.label <= CFG.era.end) b = i; });
+  const ok = a >= 0 && b >= a;
+  $("tEra").style.display = $("tEraLbl").style.display = ok ? "" : "none";
+  if(ok){
+    const step = n > 1 ? 1 / (n - 1) : 0;
+    const x0 = Math.max(0, trendX[a] - step / 2), x1 = Math.min(1, trendX[b] + step / 2);
+    $("tEra").setAttribute("x", x0 * 1000); $("tEra").setAttribute("width", (x1 - x0) * 1000);
+    $("tEraLbl").style.left = `calc(${x0 * 100}% + 5px)`;
+  }
+  $("trend").setAttribute("aria-label", `Win percentage by season: ${(wp[0] * 100).toFixed(0)}% in ${seasons[0].label}, ${(wp[n - 1] * 100).toFixed(0)}% in ${seasons[n - 1].label}`);
+}
+
+function render(){
+  const i = +$("slider").value, s = seasons[i], pct = s.n ? s.np / s.n : 0;
+  $("season").textContent = s.label;
+  $("wl").textContent = `${s.w} - ${s.l}`;
+  $("pct").textContent = `${(s.w / (s.w + s.l) * 100).toFixed(1)}% wins`;
+  $("roster").replaceChildren(...s.rows.map(r => card(r, s.label)));
+  $("gnum").textContent = `${s.np} of ${s.n}`;
+  $("gfill").style.height = pct * 100 + "%";
+  $("gship").style.bottom = pct * 100 + "%";
+  $("tDot").style.left = trendX[i] * 100 + "%";
+  $("tDot").style.top = trendY[i] + "%";
+  paintPlanks(pct);
+  fit();
+}
+
+function setup(data){
+  seasons = data;
+  $("slider").max = seasons.length - 1;
+  $("slider").value = 0;
+  $("ticks").replaceChildren(...seasons.map(s => Object.assign(document.createElement("span"), {textContent:s.label})));
+  $("roster").classList.toggle("top", CFG.flip === "top");
+  $("slider").oninput = render;
+  $("roster").addEventListener("scroll", moreHint, {passive:true});
+  buildTrend();
+  addEventListener("resize", () => { fit(); placeTour(); });
+  if(document.fonts) document.fonts.ready.then(fit);
+  render();
+}
+
+// ---- screens: cover -> intro -> visualization. Add #intro, #defs or #viz to the URL to skip ahead. ----
+let stage = "cover", toured = false;
+const timers = {};
+function hide(el){ el.classList.add("leaving"); clearTimeout(timers[el.id]); timers[el.id] = setTimeout(() => el.classList.add("gone"), 1500); }
+function reveal(el){ clearTimeout(timers[el.id]); el.classList.remove("gone"); void el.offsetWidth; el.classList.remove("leaving"); }
+function sync(){   // only the visible screen can be tabbed into
+  $("cover").inert = stage !== "cover";
+  $("intro").inert = stage !== "intro";
+  $("defs").inert = stage !== "defs";
+  $("app").inert = stage !== "viz" || !$("tour").hidden;
+}
+function go(next){
+  stage = next;
+  document.body.classList.toggle("entered", next === "viz");
+  if(next === "cover"){ reveal($("intro")); reveal($("cover")); hide($("defs")); }
+  else if(next === "intro"){ reveal($("intro")); hide($("cover")); hide($("defs")); }
+  else if(next === "defs"){ reveal($("intro")); reveal($("defs")); hide($("cover")); $("defs").scrollTop = 0; }
+  else { hide($("defs")); hide($("intro")); hide($("cover")); }
+  sync();
+  if(next === "intro") setTimeout(() => stage === "intro" && $("introgo").focus({preventScroll:true}), 1000);
+  if(next === "defs") setTimeout(() => stage === "defs" && ($("defs").classList.contains("noimg") ? $("defsgo") : $("dngo")).focus({preventScroll:true}), 1000);
+  if(next === "viz"){
+    setTimeout(fit, 1500);
+    if(!toured){ toured = true; setTimeout(() => stage === "viz" && startTour(), 1600); }  // onboarding runs the first time you arrive
+  }
+}
+$("sailbtn").onclick = () => go("intro");
+$("introgo").onclick = () => go("defs");
+$("introback").onclick = () => go("cover");
+$("defsgo").onclick = $("dngo").onclick = () => go("viz");
+$("defsback").onclick = $("dnback").onclick = () => go("intro");
+$("navback").onclick = () => go("defs");
+buildPlanks(); paintPlanks(1);
+if(location.hash === "#viz"){ stage = "viz"; toured = true; $("cover").classList.add("gone"); $("intro").classList.add("gone"); document.body.classList.add("entered"); }
+else if(location.hash === "#intro"){ stage = "intro"; $("cover").classList.add("gone"); }
+else if(location.hash === "#defs"){ stage = "defs"; $("cover").classList.add("gone"); $("defs").classList.remove("leaving", "gone"); }
+sync();
+
+// ---- data sources pop-up ----
+const dlg = $("datadlg");
+$("datasrc").onclick = () => dlg.showModal();
+$("dlgclose").onclick = () => dlg.close();
+dlg.addEventListener("click", e => { if(e.target === dlg) dlg.close(); });
+
+// ---- onboarding walkthrough: spotlight + step-through tooltip ----
+const firstCard = () => document.querySelector("#roster .card");
+const STEPS = [
+  {sel:"#sliderwrap", title:"Move Through The Seasons",
+   text:"Drag the slider to move season by season. The cards below show everyone on the Sixers\u2019 roster that year."},
+  {sel:"#trend", title:"Regular Season Win % Trendline",
+   text:"This line tracks the team\u2019s win-loss percentage in every season. The red dot marks the season you\u2019re viewing, and the blue band is the Process era."},
+  {sel:"#legend", title:"Player Card Border Colors",
+   text:"Blue border: a Process player. Gold ring: a Hinkie draft-night acquisition. Red border: a later player who arrived after the Process era."},
+  {sel:"#roster .card", title:"Flip a Card",
+   text:"Click any card to flip for that player\u2019s season stats (games, minutes, points, rebounds, assists) and draft details.",
+   enter(){ const c = firstCard(); if(c){ c.classList.add("flipped"); c.setAttribute("aria-pressed", "true"); } },
+   exit(){ const c = firstCard(); if(c){ c.classList.remove("flipped"); c.setAttribute("aria-pressed", "false"); } }},
+  {sel:"#gaugebox", title:"The Ship Gauge",
+   text:"The gauge shows how much of each season\u2019s roster was part of the Process."},
+  {sel:"#datasrc", title:"Insights on the Data Source",
+   text:"Data sources explains where every number comes from and what to watch for."},
+  {sel:"#tourbtn", title:"User Tour",
+   text:"Replay this tour any time with How to use."}
+];
+let tourI = -1, tourReturn = null;
+function leaveStep(){ const s = STEPS[tourI]; if(s && s.exit) s.exit(); }
+function startTour(){
+  if(!$("tour").hidden || !seasons.length) return;
+  tourReturn = document.activeElement === $("tourbtn") ? $("tourbtn") : null;
+  $("tour").hidden = false; sync();
+  $("tDots").replaceChildren(...STEPS.map(() => document.createElement("i")));
+  tourI = -1; showStep(0);
+}
+function endTour(){
+  leaveStep(); tourI = -1;
+  $("tour").hidden = true; sync();
+  (tourReturn || $("slider")).focus({preventScroll:true});
+}
+function showStep(i){
+  leaveStep(); tourI = i;
+  const s = STEPS[i];
+  if(s.enter) s.enter();
+  $("tStep").textContent = `Step ${i + 1} of ${STEPS.length}`;
+  $("tTitle").textContent = s.title;
+  $("tText").textContent = s.text;
+  [...$("tDots").children].forEach((d, k) => d.classList.toggle("on", k === i));
+  $("tPrev").style.visibility = i ? "visible" : "hidden";
+  $("tNext").textContent = i === STEPS.length - 1 ? "Start exploring" : "Next";
+  placeTour();
+  $("tNext").focus({preventScroll:true});
+}
+function placeTour(){
+  if(tourI < 0 || $("tour").hidden) return;
+  const s = STEPS[tourI], el = s.sel && document.querySelector(s.sel), hole = $("hole"), tip = $("tip");
+  const vw = innerWidth, vh = innerHeight, pad = 8, gap = 14, m = 8;
+  let r;
+  if(el){
+    if(matchMedia("(max-width:759px)").matches) el.scrollIntoView({block:"center"});
+    const b = el.getBoundingClientRect();
+    r = {left:b.left - pad, top:b.top - pad, width:b.width + pad * 2, height:b.height + pad * 2};
+  } else r = {left:vw / 2, top:vh / 2, width:0, height:0};
+  hole.classList.toggle("none", !el);
+  Object.assign(hole.style, {left:r.left + "px", top:r.top + "px", width:r.width + "px", height:r.height + "px"});
+  const tw = tip.offsetWidth, th = tip.offsetHeight, rb = r.top + r.height, rr = r.left + r.width;
+  let x, y;
+  if(!el){ x = (vw - tw) / 2; y = (vh - th) / 2; }
+  else if(rb + gap + th <= vh - m){ x = r.left; y = rb + gap; }                 // below
+  else if(r.top - gap - th >= m){ x = r.left; y = r.top - gap - th; }           // above
+  else if(rr + gap + tw <= vw - m){ x = rr + gap; y = r.top; }                  // right
+  else if(r.left - gap - tw >= m){ x = r.left - gap - tw; y = r.top; }          // left
+  else { x = (vw - tw) / 2; y = vh - th - 12; }
+  tip.style.left = Math.max(m, Math.min(vw - tw - m, x)) + "px";
+  tip.style.top = Math.max(m, Math.min(vh - th - m, y)) + "px";
+}
+const tourNext = () => tourI >= STEPS.length - 1 ? endTour() : showStep(tourI + 1);
+const tourPrev = () => tourI > 0 && showStep(tourI - 1);
+$("tNext").onclick = tourNext;
+$("tPrev").onclick = tourPrev;
+$("tSkip").onclick = endTour;
+$("tourbtn").onclick = startTour;
+addEventListener("keydown", e => {
+  if($("tour").hidden) return;
+  if(e.key === "Escape"){ e.preventDefault(); endTour(); }
+  else if(e.key === "ArrowRight"){ e.preventDefault(); tourNext(); }
+  else if(e.key === "ArrowLeft"){ e.preventDefault(); tourPrev(); }
+});
+
+Promise.all([load(CFG.players), load(CFG.stats), load(CFG.teams)])
+  .then(([p, s, t]) => setup(buildSeasons(p, s, t, CFG)))
+  .catch(e => {
+    const el = $("err"); el.style.display = "block";
+    el.textContent = "Could not load the data (" + e.message + "). Open this page through a local server (python3 -m http.server) rather than double-clicking the file, and check that the three CSVs are in the data/ folder.";
+  });
+</script>
+</body>
+</html>
